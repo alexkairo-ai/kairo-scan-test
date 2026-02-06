@@ -341,13 +341,6 @@ function renderReports(){
  orderTd.textContent=r.order; dateTd.textContent=r.date; timeTd.textContent=r.time;
  stageTd.textContent=r.stage; nameTd.textContent=r.name; dbTd.textContent=r.db||'';
 
- if(r.photo_url){
- const link=document.createElement('a');
- link.href=r.photo_url; link.target='_blank';
- link.textContent='Фото';
- actionTd.appendChild(link);
- }
-
  if(editMode){
  const btn=document.createElement('button');
  btn.textContent='Удалить'; btn.dataset.db=r.db; btn.dataset.row=r.row;
