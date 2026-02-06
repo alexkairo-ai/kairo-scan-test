@@ -47,10 +47,18 @@ function showScanButton(show){ startBtn.style.display = show ? "block" : "none";
 function stopCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 function freezeCamera(){ if(stream) stream.getTracks().forEach(t=>t.stop()); locked=true; if(stopTimer){clearTimeout(stopTimer);stopTimer=null;} showScanButton(true); }
 
-/* автозаполнение имени */
 const savedName = localStorage.getItem('workerName') || '';
 if(savedName) workerInput.value = savedName;
 workerInput.addEventListener('input', ()=>localStorage.setItem('workerName', workerInput.value.trim()));
+
+function parseDbOrderClient(raw){
+ const s = String(raw || '').trim();
+ if (s.includes('|')){
+ const parts = s.split('|');
+ return { db: parts[0].trim(), order: parts.slice(1).join('|').trim() };
+ }
+ return { db:'', order:s };
+}
 
 async function startCamera(){
  if (starting) return;
@@ -110,13 +118,15 @@ function flashStage(btn){
 }
 
 function sendStage(stage, color, btn, photoUrl){
- let raw=orderInput.value.trim();
+ const parsed = parseDbOrderClient(orderInput.value);
+ let raw = parsed.order;
+ let db = parsed.db;
  let name=workerInput.value.trim();
  if(!raw){ statusEl.innerHTML="Введите/сканируйте номер"; return; }
  if(!name){ statusEl.innerHTML="Введите имя"; return; }
  if(btn) flashStage(btn);
  statusEl.innerHTML="Отправка...";
- callApi({action:'mark',stage,order:raw,name, color:color||'', db:'', photo_url:photoUrl||''},
+ callApi({action:'mark',stage,order:raw,name, color:color||'', db:db, photo_url:photoUrl||''},
  res=>{ statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
  err=>{ statusEl.innerHTML = err; }
  );
@@ -217,7 +227,10 @@ function openPhotoDialog(stage, color, btn){
 }
 
 async function uploadPhotos(files, stage){
- const order = orderInput.value.trim();
+ const parsed = parseDbOrderClient(orderInput.value);
+ const order = parsed.order;
+ const db = parsed.db;
+
  const name = workerInput.value.trim();
  if(!order || !name) throw 'Введите заказ и имя';
 
@@ -225,7 +238,7 @@ async function uploadPhotos(files, stage){
  const date = now.toLocaleDateString('ru-RU');
  const time = now.toTimeString().slice(0,5);
 
- const payload = {action:'upload_photos',order,stage,name,date,time,files:[]};
+ const payload = {action:'upload_photos',order,stage,name,date,time,db,files:[]};
 
  for(const f of files){
  const data = await fileToBase64(f);
@@ -368,217 +381,21 @@ function renderReports(){
  }
 }
 
-function ymdToShort(ymd){
- if(!ymd) return '';
- const p=ymd.split('-'); if(p.length!==3) return '';
- const yy=p[0].slice(-2); return p[2]+'.'+p[1]+'.'+yy;
-}
-function countUniqueOrders(data, datePrefix, stage){
- const set=new Set();
- data.forEach(r=>{
- const okDate=datePrefix ? String(r.date||'').startsWith(datePrefix) : true;
- const okStage=(stage==='all') ? true : (String(r.stage||'').toLowerCase()===stage);
- if(okDate && okStage) set.add(String(r.order||'').trim());
- });
- return set.size;
-}
-
 document.querySelectorAll('.filters button').forEach(btn=>{ btn.onclick=()=>loadReports(btn.dataset.filter); });
 searchInput.addEventListener('input',()=>{ filterTerm=searchInput.value.trim(); applyFilterSort(); });
 sortSelect.onchange=()=>{ sortMode=sortSelect.value; applyFilterSort(); };
 
 statsBtn.onclick=()=>{
- const d=statsDate.value, stage=statsStage.value, prefix=ymdToShort(d);
- if(!prefix){ statsResult.textContent='Выберите дату'; return; }
+ const d=statsDate.value, stage=statsStage.value;
+ if(!d){ statsResult.textContent='Выберите дату'; return; }
  statsResult.textContent='Считаю...';
  callApi({action:'reports',filter:'all'}, res=>{
  if(!res.ok){ statsResult.textContent='Ошибка'; return; }
- const cnt=countUniqueOrders(res.data||[], prefix, stage);
+ const prefix = d.split('-'); if(prefix.length!==3){ statsResult.textContent='Ошибка даты'; return; }
+ const datePrefix = prefix[2]+'.'+prefix[1]+'.'+prefix[0].slice(-2);
+ const cnt = new Set((res.data||[]).filter(r=>String(r.date||'').startsWith(datePrefix) && (stage==='all'||String(r.stage||'').toLowerCase()===stage)).map(r=>String(r.order||'').trim())).size;
  statsResult.textContent='Уникальных заказов: '+cnt;
  }, ()=>{ statsResult.textContent='Нет ответа'; });
-};
-
-function parseYmdToMs(ymd){
- if(!ymd) return '';
- const p=ymd.split('-'); if(p.length!==3) return '';
- const y=parseInt(p[0],10), m=parseInt(p[1],10), d=parseInt(p[2],10);
- return new Date(y,m-1,d,0,0,0).getTime();
-}
-
-function escapeHtml(str){
- return String(str)
- .replace(/&/g,'&amp;')
- .replace(/</g,'&lt;')
- .replace(/>/g,'&gt;')
- .replace(/"/g,'&quot;')
- .replace(/'/g,'&#39;');
-}
-
-async function loadImageAsDataURL(url){
- const res = await fetch(url, {mode:'cors'});
- const blob = await res.blob();
- return await new Promise(resolve=>{
- const reader = new FileReader();
- reader.onload = () => resolve(reader.result);
- reader.readAsDataURL(blob);
- });
-}
-
-function buildSummary(data){
- const map = new Map();
-
- data.forEach(r=>{
- const stage = String(r.stage||'').trim();
- const date = String(r.date||'').trim();
- const name = String(r.name||'').trim();
- if(!stage || !date || !name) return;
-
- const key = stage+'|'+date+'|'+name;
- if(!map.has(key)){
- map.set(key, {stage, date, name, orders: new Set()});
- }
- const order = String(r.order||'').trim();
- if(order) map.get(key).orders.add(order);
- });
-
- const rows = Array.from(map.values()).map(x=>({
- stage:x.stage,
- date:x.date,
- name:x.name,
- count:x.orders.size,
- orders:Array.from(x.orders).join(', ')
- }));
-
- rows.sort((a,b)=>{
- const d = a.date.localeCompare(b.date,'ru');
- if(d!==0) return d;
- const s = a.stage.localeCompare(b.stage,'ru');
- if(s!==0) return s;
- return a.name.localeCompare(b.name,'ru');
- });
-
- return rows;
-}
-
-exportPdfBtn.onclick=async ()=>{
- const fromMs = parseYmdToMs(pdfFrom.value);
- const toMs = parseYmdToMs(pdfTo.value);
- const toEnd = (toMs!==null) ? (toMs +24*60*60*1000 -1) : null;
-
- let data = rawReports.slice();
- if(fromMs) data = data.filter(r=>parseDateTime(r)>=fromMs);
- if(toEnd) data = data.filter(r=>parseDateTime(r)<=toEnd);
-
- if(!data.length){ alert("Нет данных для выбранного периода"); return; }
-
- const summaryRows = buildSummary(data);
-
- const period = (pdfFrom.value||'') + (pdfTo.value?(' — '+pdfTo.value):'');
- const logoUrl = "https://s.fstl.ai/workers/nano/image_1770296525645_6vc4s2.png";
- const logoData = await loadImageAsDataURL(logoUrl).catch(()=>'');
-
- const rowsHtml = data.map(r=>`
- <tr>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.order||'')}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.date||'')}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.time||'')}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.stage||'')}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.name||'')}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(r.db||'')}</td>
- </tr>
- `).join('');
-
- printArea.innerHTML = `
-<div style="width:794px; padding:28px30px; font-family:Arial, 'Segoe UI', sans-serif; box-sizing:border-box;">
- <div style="display:flex; align-items:center; gap:14px;">
- ${logoData ? `<img src="${logoData}" style="width:320px;height:auto;object-fit:contain;">` : ''}
- <div>
- <div style="font-size:20px;font-weight:700;">Отчёт ${period ? '('+period+')' : ''}</div>
- <div style="font-size:12px;color:#555;">Сформировано: ${new Date().toLocaleString()}</div>
- </div>
- </div>
-
- <div style="margin-top:12px;font-size:12px;font-weight:700;">Сводка по сотрудникам:</div>
- <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
- <thead>
- <tr>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Кол-во заказов</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Номера заказов</th>
- </tr>
- </thead>
- <tbody>
- ${summaryRows.map(s=>`
- <tr>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.stage)}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.date)}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.name)}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(String(s.count))}</td>
- <td style="border:1px solid #bbb;padding:6px5px;">${escapeHtml(s.orders)}</td>
- </tr>
- `).join('')}
- </tbody>
- </table>
-
- <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;">
- <thead>
- <tr>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Заказ</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Дата</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Время</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Этап</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Сотрудник</th>
- <th style="border:1px solid #bbb;padding:6px5px;background:#f2f2f2;">Таблица</th>
- </tr>
- </thead>
- <tbody>
- ${rowsHtml}
- </tbody>
- </table>
-</div>
-`;
-
- const fullCanvas = await html2canvas(printArea, {
- scale:2,
- useCORS:true,
- backgroundColor:'#ffffff'
- });
-
- const { jsPDF } = window.jspdf;
- const pdf = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
- const pageWidth =210;
- const pageHeight =297;
-
- const pageHeightPx = Math.floor(fullCanvas.width * (pageHeight / pageWidth));
- let y =0;
- let pageIndex =0;
-
- while (y < fullCanvas.height){
- const pageCanvas = document.createElement('canvas');
- pageCanvas.width = fullCanvas.width;
- pageCanvas.height = Math.min(pageHeightPx, fullCanvas.height - y);
- const pageCtx = pageCanvas.getContext('2d', { willReadFrequently: true });
-
- pageCtx.fillStyle = '#ffffff';
- pageCtx.fillRect(0,0,pageCanvas.width,pageCanvas.height);
- pageCtx.drawImage(
- fullCanvas,
-0, y, pageCanvas.width, pageCanvas.height,
-0,0, pageCanvas.width, pageCanvas.height );
-
- const imgData = pageCanvas.toDataURL('image/png');
- const imgHeightMm = (pageCanvas.height / pageCanvas.width) * pageWidth;
-
- if (pageIndex >0) pdf.addPage();
- pdf.addImage(imgData, 'PNG',0,0, pageWidth, imgHeightMm);
-
- y += pageHeightPx;
- pageIndex++;
- }
-
- pdf.save('reports.pdf');
 };
 
 openReportsBtn.onclick=openReports;
