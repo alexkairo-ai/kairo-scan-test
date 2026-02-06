@@ -1,5 +1,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxkd82t9NGFfboV2FDy7klyIyLoBK-3Vlzo7z9vNEUVabG5EsEP3SqJuiOyRfs5zeFeMw/exec';
 const EDIT_PASS = '1990';
+const PHOTO_ROOT_URL = 'https://drive.google.com/drive/folders/1zk8c6qGUBNcVQAUlucU5cedBKIQNu5GZ';
+const photoStages = new Set(['hdf','prisadka','upakovka']);
 
 const orderInput = document.getElementById("order");
 const workerInput = document.getElementById("worker");
@@ -18,6 +20,7 @@ const closeReportsBtn = document.getElementById("closeReports");
 const reportsStatus = document.getElementById("reportsStatus");
 const reportsTableBody = document.querySelector("#reportsTable tbody");
 const editReportsBtn = document.getElementById("editReports");
+const openPhotoStoreBtn = document.getElementById("openPhotoStore");
 
 const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
@@ -106,14 +109,14 @@ function flashStage(btn){
  setTimeout(()=>btn.classList.remove('stage-active'),700);
 }
 
-function sendStage(stage, color, btn){
+function sendStage(stage, color, btn, photoUrl){
  let raw=orderInput.value.trim();
  let name=workerInput.value.trim();
  if(!raw){ statusEl.innerHTML="Введите/сканируйте номер"; return; }
  if(!name){ statusEl.innerHTML="Введите имя"; return; }
  if(btn) flashStage(btn);
  statusEl.innerHTML="Отправка...";
- callApi({action:'mark',stage,order:raw,name, color:color||'', db:''},
+ callApi({action:'mark',stage,order:raw,name, color:color||'', db:'', photo_url:photoUrl||''},
  res=>{ statusEl.innerHTML = res.ok ? "✅ Готово" : "⚠️ " + res.msg; },
  err=>{ statusEl.innerHTML = err; }
  );
@@ -164,10 +167,89 @@ document.querySelectorAll('#stageButtons button').forEach(btn=>{
  const stage = btn.dataset.stage;
  const key = (btn.dataset.only || stage).toLowerCase();
  const color = btn.dataset.color || '';
- btn.onclick = () => sendStage(stage, color, btn);
+ btn.onclick = () => {
+ if(photoStages.has(stage)){
+ openPhotoDialog(stage, color, btn);
+ }else{
+ sendStage(stage, color, btn, '');
+ }
+ };
  if (only && key !== only) btn.style.display = 'none';
 });
 if (only) stageTitle.textContent = "Этап:";
+
+function openPhotoDialog(stage, color, btn){
+ const overlay = document.createElement('div');
+ overlay.id = 'photoOverlay';
+ overlay.innerHTML = `
+ <div class="photo-modal">
+ <div class="photo-title">Загрузите фото для этапа</div>
+ <input id="photoInput" type="file" accept="image/*" multiple />
+ <div class="photo-actions">
+ <button id="photoUpload">Загрузить</button>
+ <button id="photoSkip">Продолжить без фото</button>
+ <button id="photoCancel">Отмена</button>
+ </div>
+ <div id="photoMsg" class="small"></div>
+ </div>`;
+ document.body.appendChild(overlay);
+
+ const input = document.getElementById('photoInput');
+ const msgEl = document.getElementById('photoMsg');
+
+ document.getElementById('photoCancel').onclick = ()=> overlay.remove();
+ document.getElementById('photoSkip').onclick = ()=>{
+ overlay.remove();
+ sendStage(stage, color, btn, '');
+ };
+
+ document.getElementById('photoUpload').onclick = async ()=>{
+ const files = Array.from(input.files || []);
+ if(!files.length){ msgEl.textContent='Выберите фото'; return; }
+
+ msgEl.textContent='Загрузка...';
+ const folderUrl = await uploadPhotos(files, stage).catch(err=>{ msgEl.textContent=err; return null; });
+ if(folderUrl){
+ overlay.remove();
+ sendStage(stage, color, btn, folderUrl);
+ }
+ };
+}
+
+async function uploadPhotos(files, stage){
+ const order = orderInput.value.trim();
+ const name = workerInput.value.trim();
+ if(!order || !name) throw 'Введите заказ и имя';
+
+ const now = new Date();
+ const date = now.toLocaleDateString('ru-RU');
+ const time = now.toTimeString().slice(0,5);
+
+ const payload = {action:'upload_photos',order,stage,name,date,time,files:[]};
+
+ for(const f of files){
+ const data = await fileToBase64(f);
+ payload.files.push({name:f.name, type:f.type, data});
+ }
+
+ const res = await fetch(API_URL, {
+ method:'POST',
+ headers:{'Content-Type':'application/json'},
+ body: JSON.stringify(payload)
+ }).then(r=>r.json());
+
+ if(!res.ok) throw (res.msg || 'Ошибка загрузки');
+ return res.folderUrl;
+}
+
+function fileToBase64(file){
+ return new Promise((resolve,reject)=>{
+ const r = new FileReader();
+ r.onload = ()=> resolve(r.result.split(',')[1]);
+ r.onerror = ()=> reject('Ошибка чтения файла');
+ r.readAsDataURL(file);
+ });
+}
 
 function openReports(){
  mainView.classList.add('hidden');
@@ -258,14 +340,23 @@ function renderReports(){
  const actionTd=document.createElement('td');
  orderTd.textContent=r.order; dateTd.textContent=r.date; timeTd.textContent=r.time;
  stageTd.textContent=r.stage; nameTd.textContent=r.name; dbTd.textContent=r.db||'';
+
+ if(r.photo_url){
+ const link=document.createElement('a');
+ link.href=r.photo_url; link.target='_blank';
+ link.textContent='Фото';
+ actionTd.appendChild(link);
+ }
+
  if(editMode){
  const btn=document.createElement('button');
  btn.textContent='Удалить'; btn.dataset.db=r.db; btn.dataset.row=r.row;
  actionTd.classList.add('row-actions'); actionTd.appendChild(btn);
- } else { actionTd.textContent=''; }
+ }
  tr.append(orderTd,dateTd,timeTd,stageTd,nameTd,dbTd,actionTd);
  reportsTableBody.appendChild(tr);
  });
+
  if(editMode){
  reportsTableBody.querySelectorAll('button').forEach(btn=>{
  btn.onclick=()=>{
@@ -499,6 +590,10 @@ exportPdfBtn.onclick=async ()=>{
 
 openReportsBtn.onclick=openReports;
 closeReportsBtn.onclick=closeReports;
+
+if(openPhotoStoreBtn){
+ openPhotoStoreBtn.onclick=()=>window.open(PHOTO_ROOT_URL,'_blank');
+}
 
 editReportsBtn.onclick=()=>{
  const p=prompt('Пароль:');
