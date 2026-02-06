@@ -1,0 +1,219 @@
+ss :root{
+ --glass:rgba(28,30,34,.78);
+ --gold:#caa24f;
+ --gold-hi:#f4e3a1;
+ --text:#f7f8fb;
+ --muted:#d2c59f;
+}
+*{box-sizing:border-box}
+
+html, body{
+ margin:0;
+ width:100%;
+ min-height:100%;
+ background:#000;
+ overflow-x:hidden;
+ height:100%;
+}
+
+/* фиксированный фон на весь экран */
+body::before{
+ content:"";
+ position:fixed;
+ inset:0;
+ z-index:-1;
+ background:
+ linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)),
+ url("https://i.pinimg.com/1200x/17/d6/26/17d626d329d068ad30f4e3eebbda1e23.jpg") center/cover no-repeat;
+}
+
+body{
+ color:var(--text);
+ font-family:"SF Pro Display","Inter",system-ui,Arial,sans-serif;
+ background:transparent;
+ padding-top: env(safe-area-inset-top);
+ padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* убрать разрыв при скролле в iOS */
+@supports (-webkit-touch-callout: none){
+ html{ height: -webkit-fill-available; }
+ body{ min-height: -webkit-fill-available; }
+}
+
+.wrap{max-width:900px;margin:0 auto;padding:clamp(12px,3vw,20px)}
+.card{
+ background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(0,0,0,.25)),var(--glass);
+ border:2px solid var(--gold);
+ border-radius:22px;
+ padding:clamp(14px,3vw,22px);
+ margin-bottom:clamp(10px,3vw,16px);
+ box-shadow:012px28px rgba(0,0,0,.4), inset01px0 rgba(255,255,255,.2);
+ position:relative;
+}
+.card:before{
+ content:"";
+ position:absolute;
+ inset:2px;
+ border-radius:20px;
+ border:1px solid rgba(255,255,255,.07);
+ pointer-events:none;
+}
+h2{font-size:clamp(22px,5vw,32px);margin:006px}
+h3{font-size:clamp(18px,4vw,24px);margin:6px010px;color:var(--muted)}
+video{width:100%;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:#000;pointer-events:none}
+input{
+ font-size:clamp(16px,4.2vw,22px);
+ padding:clamp(10px,3vw,14px) clamp(12px,3vw,16px);
+ width:100%;
+ border-radius:14px;
+ border:2px solid var(--gold);
+ background:rgba(6,8,12,.6);
+ color:#fff;
+ margin-top:8px;
+ outline:none;
+}
+input:focus{border-color:var(--gold-hi);box-shadow:0003px rgba(244,227,161,.18)}
+
+button{
+ position:relative;
+ overflow:hidden;
+ z-index:0;
+ font-size:clamp(20px,5.2vw,30px);
+ font-weight:700;
+ letter-spacing:.2px;
+ padding:clamp(12px,3.2vw,16px);
+ width:100%;
+ border-radius:16px;
+ margin-top:10px;
+ color:#2b2b2b;
+ text-shadow:
+1px00 var(--gold),
+ -1px00 var(--gold),
+01px0 var(--gold),
+0 -1px0 var(--gold),
+1px1px0 var(--gold),
+ -1px -1px0 var(--gold),
+1px -1px0 var(--gold),
+ -1px1px0 var(--gold),
+006px rgba(244,227,161,.75),
+0012px rgba(244,227,161,.45);
+ background:transparent;
+ border:2px solid var(--gold);
+ box-shadow:08px18px rgba(0,0,0,.35), inset01px0 rgba(255,255,255,.2);
+}
+button::before{
+ content:"";
+ position:absolute;
+ inset:-8px;
+ z-index:-1;
+ background:
+ linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+ url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png") center/cover no-repeat;
+ filter:blur(0.3px);
+ transform:scale(1.03);
+}
+button:active{transform:translateY(1px)}
+#startCam{display:block}
+.small{font-size:clamp(12px,3.2vw,16px);color:var(--muted)}
+#status{
+ margin-top:10px;
+ font-weight:700;
+ font-size:clamp(14px,3.6vw,18px);
+ min-height:20px;
+ padding:6px8px;
+ background:rgba(0,0,0,.25);
+ border-radius:10px;
+ border:1px solid rgba(255,255,255,.08);
+}
+.badge{
+ display:inline-block;
+ font-size:clamp(12px,3vw,16px);
+ padding:6px10px;
+ border-radius:999px;
+ background:rgba(255,255,255,.08);
+ border:1px solid var(--gold);
+ color:var(--gold-hi);
+}
+.grid{display:grid;gap:8px}
+
+.table{width:100%;border-collapse:collapse;font-size:14px}
+.table th,.table td{border-bottom:1px solid rgba(255,255,255,.1);padding:8px6px;text-align:left}
+.table th{color:var(--muted)}
+.table tr:hover{background:rgba(255,255,255,.03)}
+.table td:nth-child(2), .table th:nth-child(2){white-space:nowrap}
+.table td:nth-child(3), .table th:nth-child(3){white-space:nowrap}
+.row-actions button{width:auto;padding:6px10px;font-size:14px;margin:0}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{width:auto;font-size:12px;padding:6px8px;border-radius:10px}
+
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tools select, .tools input{
+ font-size:12px;
+ padding:6px8px;
+ border-radius:10px;
+ border:1px solid var(--gold);
+ background:rgba(6,8,12,.6);
+ color:#fff;
+}
+
+.stage-active{
+ border-color:var(--gold-hi) !important;
+ box-shadow:0003px rgba(244,227,161,.2);
+ transform:translateY(-1px);
+}
+
+.hidden{display:none}
+
+/* скрытая зона рендера под картинку */
+#printArea{
+ position:fixed;
+ left:-99999px;
+ top:0;
+ width:794px; /* A4 @96dpi */
+ background:#fff;
+ color:#111;
+}
+
+/* кнопка обновления */
+#refreshBtn{
+ position:absolute;
+ top:12px;
+ right:12px;
+ z-index:5;
+ width:32px;
+ height:32px;
+ padding:0;
+ border-radius:10px;
+ border:1px solid var(--gold);
+ background:transparent;
+ color:#2b2b2b;
+ text-shadow:
+1px00 var(--gold),
+ -1px00 var(--gold),
+01px0 var(--gold),
+0 -1px0 var(--gold),
+1px1px0 var(--gold),
+ -1px -1px0 var(--gold),
+1px -1px0 var(--gold),
+ -1px1px0 var(--gold),
+006px rgba(244,227,161,.75),
+0012px rgba(244,227,161,.45);
+ font-size:18px;
+ font-weight:800;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+}
+#refreshBtn::before{
+ content:"";
+ position:absolute;
+ inset:-8px;
+ z-index:-1;
+ background:
+ linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+ url("https://png.pngtree.com/thumb_back/fh260/background/20231102/pngtree-detailed-texture-of-dark-brown-wood-grain-image_13764792.png") center/cover no-repeat;
+ filter:blur(0.3px);
+ transform:scale(1.03);
+}
