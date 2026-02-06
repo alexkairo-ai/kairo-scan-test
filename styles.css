@@ -86,7 +86,7 @@ button{
  width:100%;
  border-radius:16px;
  margin-top:10px;
- color:#2b2b2b;
+ color:#ff9300;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -188,7 +188,7 @@ button:active{transform:translateY(1px)}
  border-radius:10px;
  border:1px solid var(--gold);
  background:transparent;
- color:#2b2b2b;
+ color:#ff9300;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -230,3 +230,4 @@ button:active{transform:translateY(1px)}
 .photo-title{font-weight:700;margin-bottom:8px}
 .photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .photo-actions button{width:auto;font-size:12px;padding:6px10px;border-radius:10px}
+
