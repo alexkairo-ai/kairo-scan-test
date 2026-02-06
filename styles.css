@@ -86,7 +86,7 @@ button{
  width:100%;
  border-radius:16px;
  margin-top:10px;
- color:#cf8a3b;
+ color:#2b2b2b;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -188,7 +188,7 @@ button:active{transform:translateY(1px)}
  border-radius:10px;
  border:1px solid var(--gold);
  background:transparent;
- color:#cf8a3b;
+ color:#2b2b2b;
  text-shadow:
 1px00 var(--gold),
  -1px00 var(--gold),
@@ -218,4 +218,15 @@ button:active{transform:translateY(1px)}
  transform:scale(1.03);
 }
 
-
+/* окно загрузки фото */
+#photoOverlay{
+ position:fixed; inset:0; background:rgba(0,0,0,.6);
+ display:flex; align-items:center; justify-content:center; z-index:9999;
+}
+.photo-modal{
+ background:rgba(28,30,34,.95); border:2px solid #caa24f; border-radius:16px;
+ padding:16px; width:min(92vw,380px); color:#fff;
+}
+.photo-title{font-weight:700;margin-bottom:8px}
+.photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.photo-actions button{width:auto;font-size:12px;padding:6px10px;border-radius:10px}
